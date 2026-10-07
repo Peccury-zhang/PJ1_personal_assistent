@@ -1,0 +1,101 @@
+/* ============================================================
+   个人全能助手 —— 全局主题
+   色板移植自 qyh_jushen_frontend/src/styles/modern-theme.css
+   暗色为默认（html.dark），可切换亮色（html.light）
+   ============================================================ */
+
+:root,
+html.dark {
+  --color-bg-primary: #0f172a;
+  --color-bg-secondary: #1e293b;
+  --color-bg-tertiary: #334155;
+
+  --color-surface: rgba(30, 41, 59, 0.6);
+  --color-surface-solid: #1e293b;
+  --color-surface-hover: rgba(30, 41, 59, 0.85);
+
+  --color-primary: #f59e0b;
+  --color-primary-light: #fbbf24;
+  --color-primary-dark: #d97706;
+
+  --color-accent: #8b5cf6;
+  --color-accent-light: #a78bfa;
+
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+  --color-info: #3b82f6;
+
+  --color-text-primary: #f8fafc;
+  --color-text-secondary: #cbd5e1;
+  --color-text-muted: #94a3b8;
+  --color-text-disabled: #64748b;
+
+  --color-border: rgba(248, 250, 252, 0.1);
+  --color-border-hover: rgba(245, 158, 11, 0.35);
+
+  --shadow-sm: 0 4px 20px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 8px 32px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.4);
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+
+  --transition-fast: 0.2s ease;
+  --transition-normal: 0.3s ease;
+
+  --sidebar-width: 210px;
+  --sidebar-width-collapsed: 64px;
+  --titlebar-height: 56px;
+}
+
+html.light {
+  --color-bg-primary: #f6f8fb;
+  --color-bg-secondary: #f1f5f9;
+  --color-bg-tertiary: #e8eef7;
+
+  --color-surface: #ffffff;
+  --color-surface-solid: #ffffff;
+  --color-surface-hover: #f7f9fc;
+
+  --color-text-primary: #0f172a;
+  --color-text-secondary: #334155;
+  --color-text-muted: #64748b;
+  --color-text-disabled: #94a3b8;
+
+  --color-border: rgba(15, 23, 42, 0.08);
+  --color-border-hover: rgba(245, 158, 11, 0.35);
+
+  --shadow-sm: 0 4px 16px rgba(15, 23, 42, 0.08);
+  --shadow-md: 0 8px 24px rgba(15, 23, 42, 0.12);
+  --shadow-lg: 0 14px 36px rgba(15, 23, 42, 0.14);
+}
+
+/* 通用卡片 */
+.pa-card {
+  background: var(--color-surface-solid);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.pa-muted { color: var(--color-text-muted); }
+.pa-secondary { color: var(--color-text-secondary); }
+
+.pa-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+.pa-scroll::-webkit-scrollbar-thumb {
+  background: var(--color-bg-tertiary);
+  border-radius: 4px;
+}
+.pa-scroll::-webkit-scrollbar-track { background: transparent; }
+
+/* 行内操作按钮（编辑/删除）：参照 qyh 圆形图标按钮，编辑=warning、删除=danger；
+   当日任务 / 已完成任务 / 日记 三处统一使用，间距固定 4px、行内垂直居中 */
+.row-actions { display: flex; align-items: center; gap: 4px; flex: 0 0 auto; }
+.row-actions .el-button + .el-button { margin-left: 0; }  /* 覆盖 Element Plus 相邻按钮默认 12px 左margin */
+.row-actions .el-button.is-circle { width: 24px; height: 24px; padding: 0; }
+.row-actions .el-icon { font-size: 13px; }
+
+/* Element Plus 暗色下的主色微调 */
+html.dark .el-card { --el-card-bg-color: var(--color-surface-solid); }

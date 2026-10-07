@@ -1,0 +1,69 @@
+# ============================================================
+#  个人全能助手 —— .gitignore
+#  只提交源码与配置；编译产物、依赖、运行时数据与敏感信息一律忽略
+# ============================================================
+
+# ---------- 前端构建产物（npm run build -> ../web，可由 frontend/src 重建）----------
+web/
+
+# ---------- 前端依赖（npm install 还原，锁文件 package-lock.json 保留提交）----------
+node_modules/
+frontend/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# ---------- Python 字节码缓存 ----------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# ---------- Python 虚拟环境 / 打包 ----------
+.venv/
+venv/
+env/
+ENV/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ---------- PyInstaller 打包产物（图形启动器 exe，由 build_launcher.bat 生成）----------
+dist/
+build/
+build_tmp/
+*.spec
+个人全能助手.exe
+launcher_backend.log
+launcher_frontend.log
+
+# ---------- 运行时数据与敏感信息（启动时自动重建，切勿提交）----------
+# settings.json 含 api_key，users.json 含账户凭据，sessions.json 含登录令牌
+persistent/
+weekly_report_output/
+
+# ---------- 本地环境变量 / 密钥 ----------
+.env
+.env.*
+!.env.example
+*.local
+
+# ---------- 编辑器 / IDE ----------
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ---------- 操作系统 ----------
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---------- 日志与临时文件 ----------
+*.log
+logs/
+tmp/
+*.tmp
