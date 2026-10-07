@@ -1,12 +1,12 @@
 <template>
   <div class="butler-view">
     <div class="hero pa-card">
-      <div class="hero-icon"><el-icon :size="34"><MagicStick /></el-icon></div>
+      <div class="hero-icon"><el-icon :size="34"><Tools /></el-icon></div>
       <div class="hero-text">
-        <h2>智能助手</h2>
+        <h2>工具箱</h2>
         <p class="pa-secondary">
           「个人全能助手」的通用 AI 能力入口。当前版本已上线 <b>日历任务</b>、<b>AI 周报</b>、<b>天气</b> 三大模块，
-          智能助手面板正在规划中。
+          工具箱面板正在规划中。
         </p>
       </div>
     </div>

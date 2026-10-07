@@ -61,7 +61,8 @@ const prio = computed(() => PRIORITY_META[props.task.priority] || PRIORITY_META.
   font-size: 14px; color: var(--color-text-primary);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.task-item.done .task-title { text-decoration: line-through; color: var(--color-text-muted); }
+/* 已完成：仅置灰，不加删除线 */
+.task-item.done .task-title { color: var(--color-text-muted); }
 .task-item.done .prio-dot { opacity: .4; }
 .task-note {
   font-size: 12px; margin-top: 4px; line-height: 1.4;

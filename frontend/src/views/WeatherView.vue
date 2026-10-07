@@ -121,7 +121,6 @@
           />
           <el-button :loading="searchingCity" @click="doSearchCity">搜索</el-button>
         </div>
-        <div class="pa-muted add-city-tip">仅能添加 Open-Meteo 与和风天气支持的城市，以搜索结果为准，点击结果即添加。</div>
         <div v-if="cityResults.length" class="add-city-results pa-scroll">
           <div v-for="(c, i) in cityResults" :key="i" class="add-city-item" @click="addCity(c)">
             <span>{{ c.name }}</span>

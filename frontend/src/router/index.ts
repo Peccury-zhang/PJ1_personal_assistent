@@ -18,7 +18,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'report', name: 'report', component: () => import('@/views/ReportView.vue'), meta: { title: 'AI 周报' } },
       { path: 'assistant', name: 'assistant', component: () => import('@/views/AssistantView.vue'), meta: { title: 'AI 助手' } },
       { path: 'weather', name: 'weather', component: () => import('@/views/WeatherView.vue'), meta: { title: '天气' } },
-      { path: 'butler', name: 'butler', component: () => import('@/views/ButlerView.vue'), meta: { title: '智能助手' } },
+      { path: 'butler', name: 'butler', component: () => import('@/views/ButlerView.vue'), meta: { title: '工具箱' } },
       { path: 'users', name: 'users', component: () => import('@/views/UsersView.vue'), meta: { title: '账户管理', requiresAdmin: true } }
     ]
   }
