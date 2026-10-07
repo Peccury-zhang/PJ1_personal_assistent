@@ -13,9 +13,9 @@ const routes: RouteRecordRaw[] = [
     path: '/',
     component: MainLayout,
     children: [
-      { path: '', name: 'calendar', component: () => import('@/views/CalendarView.vue'), meta: { title: '任务管理' } },
+      { path: '', name: 'calendar', component: () => import('@/views/CalendarView.vue'), meta: { title: '日历与任务' } },
       { path: 'profile', name: 'profile', component: () => import('@/views/ProfileView.vue'), meta: { title: '个人中心' } },
-      { path: 'report', name: 'report', component: () => import('@/views/ReportView.vue'), meta: { title: '周报' } },
+      { path: 'report', name: 'report', component: () => import('@/views/ReportView.vue'), meta: { title: 'AI 周报' } },
       { path: 'weather', name: 'weather', component: () => import('@/views/WeatherView.vue'), meta: { title: '天气' } },
       { path: 'butler', name: 'butler', component: () => import('@/views/ButlerView.vue'), meta: { title: '智能助手' } },
       { path: 'users', name: 'users', component: () => import('@/views/UsersView.vue'), meta: { title: '账户管理', requiresAdmin: true } }

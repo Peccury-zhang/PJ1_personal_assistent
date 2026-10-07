@@ -21,6 +21,7 @@ ROOT = Path(__file__).resolve().parent.parent
 PERSISTENT_DIR = ROOT / 'persistent'
 TASKS_DIR = PERSISTENT_DIR / 'tasks'
 WEATHER_CACHE_DIR = PERSISTENT_DIR / 'weather_cache'
+TEMPLATES_DIR = PERSISTENT_DIR / 'templates'
 SETTINGS_FILE = PERSISTENT_DIR / 'settings.json'
 REPORTS_INDEX_FILE = PERSISTENT_DIR / 'reports_index.json'
 REPORT_OUTPUT_DIR = ROOT / 'weekly_report_output'
@@ -38,7 +39,7 @@ DEFAULT_SETTINGS = {
         'model': 'qwen3.8-flash',
         'temperature': 0.7,
         'max_tokens': 4096,
-        'report_style': '简洁要点式',
+        'enabled_models': ['qwen3.8-flash'],  # 勾选后才在周报等界面的模型下拉中显示
     },
     'weather': {
         'provider': 'open_meteo',  # 拿到和风 Key 后可切 qweather
@@ -49,6 +50,10 @@ DEFAULT_SETTINGS = {
         ],
         'cache_minutes': 30,
     },
+    'report_prompt': {
+        'system': '',  # 用户在「提示词」弹窗中保存的草稿；为空表示未自定义
+        'user': '',
+    },
 }
 
 
@@ -57,8 +62,9 @@ class ConflictError(ValueError):
 
 
 def _ensure_dirs() -> None:
-    for d in (PERSISTENT_DIR, TASKS_DIR, WEATHER_CACHE_DIR, REPORT_OUTPUT_DIR):
+    for d in (PERSISTENT_DIR, TASKS_DIR, WEATHER_CACHE_DIR, REPORT_OUTPUT_DIR, TEMPLATES_DIR):
         d.mkdir(parents=True, exist_ok=True)
+    _ensure_default_template()
 
 
 # ---------------------------------------------------------------- 按用户隔离
@@ -128,7 +134,7 @@ def load_settings() -> dict:
         return json.loads(json.dumps(DEFAULT_SETTINGS))
     data = json.loads(SETTINGS_FILE.read_text(encoding='utf-8'))
     merged = json.loads(json.dumps(DEFAULT_SETTINGS))
-    for section in ('ai', 'weather'):
+    for section in ('ai', 'weather', 'report_prompt'):
         if isinstance(data.get(section), dict):
             merged[section].update(data[section])
     return merged
@@ -137,7 +143,7 @@ def load_settings() -> dict:
 def save_settings(data: dict) -> dict:
     with STORE_LOCK:
         current = load_settings()
-        for section in ('ai', 'weather'):
+        for section in ('ai', 'weather', 'report_prompt'):
             if isinstance(data.get(section), dict):
                 # api_key 为空字符串时表示“不修改”，保留原值
                 incoming = dict(data[section])
@@ -298,6 +304,92 @@ def report_output_path(uid: int, filename: str) -> Path:
     if p.parent != base.resolve():
         raise ValueError('周报路径非法')
     return p
+
+
+def delete_report_record(uid: int, record_id: str) -> dict:
+    """从索引移除记录并删除对应 .md 文件。"""
+    with STORE_LOCK:
+        index = load_reports_index(uid)
+        target = next((r for r in index.get('reports', []) if r.get('id') == record_id), None)
+        if not target:
+            raise FileNotFoundError(record_id)
+        index['reports'] = [r for r in index['reports'] if r.get('id') != record_id]
+        atomic_json(user_reports_index_file(uid), index)
+        try:
+            path = user_report_output_dir(uid) / target['file'].split('/')[-1]
+            if path.exists():
+                os.unlink(path)
+        except Exception:
+            pass
+        return {'ok': True}
+
+
+def update_report_content(uid: int, record_id: str, markdown: str) -> dict:
+    """重写某条周报的 .md 内容（标题/索引不变）。"""
+    with STORE_LOCK:
+        index = load_reports_index(uid)
+        target = next((r for r in index.get('reports', []) if r.get('id') == record_id), None)
+        if not target:
+            raise FileNotFoundError(record_id)
+        path = report_output_path(uid, target['file'].split('/')[-1])
+        path.write_text(markdown, encoding='utf-8')
+        target['updated_at'] = time.strftime('%Y-%m-%dT%H:%M:%S')
+        atomic_json(user_reports_index_file(uid), index)
+        return target
+
+
+# ---------------------------------------------------------------- templates
+DEFAULT_TEMPLATE = """# {title}
+
+## 一、本周工作完成情况
+> 总结本周所有已完成的任务与产出。
+- 
+
+## 二、下周工作计划
+> 总结下周已经设计或安排的任务。
+- 
+
+## 三、风险与需协调事项
+- （可选）
+"""
+
+
+def _ensure_default_template() -> None:
+    f = TEMPLATES_DIR / '默认模板.md'
+    if not f.exists():
+        f.write_text(DEFAULT_TEMPLATE.replace('{title}', '周报'), encoding='utf-8')
+
+
+def list_templates() -> list:
+    _ensure_dirs()
+    out = []
+    for p in sorted(TEMPLATES_DIR.glob('*.md')):
+        out.append({'name': p.stem, 'filename': p.name})
+    return out
+
+
+def read_template(name: str) -> str:
+    _ensure_dirs()
+    safe = Path(name).name
+    if not safe.endswith('.md'):
+        safe += '.md'
+    p = (TEMPLATES_DIR / safe).resolve()
+    if p.parent != TEMPLATES_DIR.resolve() or not p.exists():
+        raise FileNotFoundError(name)
+    return p.read_text(encoding='utf-8')
+
+
+def save_template(name: str, content: str) -> dict:
+    """将用户导入的 .md 文件写入模板目录，名称即文件名（同名覆盖）。"""
+    _ensure_dirs()
+    safe = Path(name).name
+    if not safe.endswith('.md'):
+        safe += '.md'
+    p = (TEMPLATES_DIR / safe).resolve()
+    if p.parent != TEMPLATES_DIR.resolve():
+        raise ValueError('模板名非法')
+    p.write_text(content or '', encoding='utf-8')
+    return {'name': p.stem, 'filename': p.name}
 
 
 # ---------------------------------------------------------------- diary

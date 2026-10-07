@@ -60,7 +60,7 @@ export interface AiConfig {
   model: string
   temperature: number
   max_tokens: number
-  report_style: string
+  enabled_models?: string[]
   api_key?: string
   api_key_masked?: string
   has_api_key?: boolean
@@ -159,13 +159,21 @@ export interface WeekData {
 export interface ReportRecord {
   id: string
   week_id: string
+  title?: string
+  author?: string
   week_start: string
   week_end: string
   generated_at: string
+  updated_at?: string
   model: string
   file: string
   stats: { total: number; done: number; rate: number }
   content?: string
+}
+
+export interface TemplateItem {
+  name: string
+  filename: string
 }
 
 export interface ModelListResult {
@@ -188,6 +196,7 @@ export interface AuthUser {
   level: UserLevel
   created_at?: string
   avatar?: string
+  report_author?: string
 }
 
 export interface LoginResult {

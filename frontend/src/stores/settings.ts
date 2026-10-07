@@ -20,7 +20,7 @@ const DEFAULT_AI: AiConfig = {
   model: 'qwen3.8-flash',
   temperature: 0.7,
   max_tokens: 4096,
-  report_style: '简洁要点式'
+  enabled_models: []
 }
 
 const DEFAULT_WEATHER: WeatherConfig = {

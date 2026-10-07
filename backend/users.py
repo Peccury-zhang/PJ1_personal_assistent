@@ -63,7 +63,8 @@ def _save_users(users: list[dict]) -> None:
 
 def _public(u: dict) -> dict:
     return {'id': u['id'], 'username': u['username'], 'level': u['level'],
-            'created_at': u.get('created_at'), 'avatar': u.get('avatar', '')}
+            'created_at': u.get('created_at'), 'avatar': u.get('avatar', ''),
+            'report_author': u.get('report_author') or u['username']}
 
 
 def _next_id(users: list[dict]) -> int:
@@ -190,6 +191,7 @@ def create_user(username: str, password: str, level: str = 'user') -> dict:
             'salt': salt,
             'password_hash': _hash_password(password, salt),
             'created_at': time.strftime('%Y-%m-%dT%H:%M:%S'),
+            'report_author': uname,
         }
         users.append(user)
         _save_users(users)
@@ -247,6 +249,60 @@ def set_avatar(uid: int, data_url: str) -> dict:
         target['avatar'] = avatar
         _save_users(users)
         return _public(target)
+
+
+def set_report_author(uid: int, author: str) -> dict:
+    """保存周报署名（用于周报标题后缀）。"""
+    name = (author or '').strip()
+    if not name:
+        raise ValueError('周报署名不能为空')
+    if len(name) > 30:
+        raise ValueError('周报署名过长（<=30 字符）')
+    with store.STORE_LOCK:
+        users = _load_users()
+        target = next((u for u in users if u['id'] == uid), None)
+        if not target:
+            raise FileNotFoundError('用户不存在')
+        target['report_author'] = name
+        _save_users(users)
+        return _public(target)
+
+
+def list_authors(uid: int) -> list[str]:
+    """返回用户的署名列表；从未设置过则以当前默认署名兜底。"""
+    u = next((x for x in _load_users() if x['id'] == uid), None)
+    if not u:
+        raise FileNotFoundError('用户不存在')
+    authors = u.get('report_authors')
+    if not isinstance(authors, list) or not [a for a in authors if str(a).strip()]:
+        authors = [u.get('report_author') or u['username']]
+    return [str(a).strip() for a in authors if str(a).strip()]
+
+
+def set_authors(uid: int, authors: list[str]) -> list[str]:
+    """整体覆盖保存署名列表（去空白、去重、至少保留一个）。"""
+    cleaned: list[str] = []
+    for a in authors or []:
+        name = (a or '').strip()
+        if not name:
+            raise ValueError('署名不能为空')
+        if len(name) > 30:
+            raise ValueError('署名过长（<=30 字符）')
+        if name not in cleaned:
+            cleaned.append(name)
+    if not cleaned:
+        raise ValueError('至少保留一个署名')
+    with store.STORE_LOCK:
+        users = _load_users()
+        target = next((x for x in users if x['id'] == uid), None)
+        if not target:
+            raise FileNotFoundError('用户不存在')
+        target['report_authors'] = cleaned
+        # 默认署名失效时回落到列表第一个
+        if target.get('report_author') not in cleaned:
+            target['report_author'] = cleaned[0]
+        _save_users(users)
+    return cleaned
 
 
 def delete_user(uid: int, operator_id: int) -> dict:

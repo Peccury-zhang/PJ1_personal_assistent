@@ -56,13 +56,13 @@
       <main class="content pa-scroll">
         <router-view v-slot="{ Component }">
           <transition name="fade" mode="out-in">
-            <component :is="Component" @open-settings="showSettings = true" />
+            <component :is="Component" @open-settings="onOpenSettings" />
           </transition>
         </router-view>
       </main>
     </div>
 
-    <SettingsDialog v-model="showSettings" />
+    <SettingsDialog v-model="showSettings" :focus-tab="settingsFocusTab" />
   </div>
 </template>
 
@@ -76,10 +76,16 @@ const auth = useAuthStore()
 const route = useRoute()
 const router = useRouter()
 const showSettings = ref(false)
+const settingsFocusTab = ref('')
+
+function onOpenSettings(tab?: string) {
+  settingsFocusTab.value = tab || ''
+  showSettings.value = true
+}
 
 const baseNav = [
-  { path: '/', label: '任务管理', icon: 'Calendar', title: '任务管理' },
-  { path: '/report', label: '周报', icon: 'Document', title: '周报' },
+  { path: '/', label: '日历与任务', icon: 'Calendar', title: '日历与任务' },
+  { path: '/report', label: 'AI 周报', icon: 'Document', title: 'AI 周报' },
   { path: '/weather', label: '天气', icon: 'Sunny', title: '天气' },
   { path: '/butler', label: '智能助手', icon: 'MagicStick', title: '智能助手' }
 ]

@@ -183,8 +183,7 @@ PJ1_weekly_report/
     "api_key": "sk-xxxx",
     "model": "qwen3.8-flash",      // 全局统一默认模型，所有 AI 场景共用；可随时在设置下拉框切换
     "temperature": 0.7,
-    "max_tokens": 4096,
-    "report_style": "简洁要点式"    // 传给 Prompt 的风格偏好
+    "max_tokens": 4096
   },
   "weather": {
     "provider": "qweather",        // qweather | open_meteo
@@ -392,7 +391,7 @@ class OpenAICompatProvider(LLMProvider):  # 一个实现通吃所有 OpenAI 兼�
 [System]
 你是一名资深的工作周报撰写助手。根据用户提供的一周任务数据，输出 Markdown 周报。
 要求：1) 结构含【本周概览】【完成情况】【亮点与产出】【未完成与风险】【下周计划建议】；
-2) 概览给出完成率与一句话总评；3) 语言{report_style}；4) 不得编造数据中不存在的事实。
+2) 概览给出完成率与一句话总评；3) 不得编造数据中不存在的事实。
 
 [User]
 周期：2026-10-05 ~ 2026-10-11（第41周）

@@ -115,7 +115,7 @@ def _fetch_open_meteo(city: dict, days: int) -> dict:
             '&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,'
             'pressure_msl,wind_speed_10m,wind_direction_10m,uv_index,visibility'
             '&daily=weather_code,temperature_2m_max,temperature_2m_min,uv_index_max,'
-            'wind_speed_10m_max,wind_direction_10m_dominant,sunrise,sunset'
+            'wind_speed_10m_max,wind_direction_10m_dominant,pressure_msl_mean,sunrise,sunset'
             f'&timezone=auto&forecast_days={max(1, min(days, 7))}')
     aurl = ('https://air-quality-api.open-meteo.com/v1/air-quality'
             f'?latitude={lat}&longitude={lon}&current=us_aqi,pm10,pm2_5,ozone')
@@ -155,6 +155,7 @@ def _fetch_open_meteo(city: dict, days: int) -> dict:
         dc = (d.get('weather_code') or [None] * len(dates))[i]
         dtext, dicon = WMO_MAP.get(dc, ('未知', 'cloudy'))
         ws = (d.get('wind_speed_10m_max') or [None] * len(dates))[i]
+        pm = (d.get('pressure_msl_mean') or [None] * len(dates))[i]
         daily.append({
             'date': ds,
             'week': _week_of(ds),
@@ -164,6 +165,7 @@ def _fetch_open_meteo(city: dict, days: int) -> dict:
             'icon_day': dicon,
             'wind_dir_day': _wind_dir_cn((d.get('wind_direction_10m_dominant') or [None] * len(dates))[i]),
             'wind_scale_day': _wind_scale(ws),
+            'pressure': round(pm) if pm is not None else None,
             'uv_index': (d.get('uv_index_max') or [None] * len(dates))[i],
             'sunrise': (d.get('sunrise') or [''] * len(dates))[i][-5:],
             'sunset': (d.get('sunset') or [''] * len(dates))[i][-5:],
@@ -216,6 +218,7 @@ def _fetch_qweather(city: dict, days: int, host: str, key: str) -> dict:
             'icon_day': _qweather_icon(d.get('iconDay', '')),
             'wind_dir_day': d.get('windDirDay'),
             'wind_scale_day': (d.get('windScaleDay') or '') + '级' if d.get('windScaleDay') else '',
+            'pressure': _num(d.get('pressure')),
             'uv_index': _num(d.get('uvIndex')),
             'humidity': _num(d.get('humidity')),
             'sunrise': d.get('sunrise'),
@@ -264,7 +267,7 @@ def get_weather(city: str, days: int = 7, use_cache: bool = True) -> dict:
         host = wcfg.get('api_host') or 'devapi.qweather.com'
         key = wcfg.get('api_key')
         if not key:
-            raise ValueError('和风天气未配置 API Key，请在设置中填写，或切换到 Open-Meteo')
+            raise ValueError('无法获取数据')
         result = _fetch_qweather(city_obj, days, host, key)
     else:
         result = _fetch_open_meteo(city_obj, days)

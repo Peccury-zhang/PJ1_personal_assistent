@@ -2,7 +2,7 @@ import client, { TOKEN_KEY } from './client'
 import type {
   ServerSettings, SettingsPatch, Task, DayData, RangeResult,
   WeatherData, CityItem, WeekData, ReportRecord, ModelListResult, ProviderPreset,
-  AuthUser, LoginResult, UserPayload, DiaryEntry, DiaryData, DiaryRangeResult
+  AuthUser, LoginResult, UserPayload, DiaryEntry, DiaryData, DiaryRangeResult, TemplateItem
 } from '@/types'
 
 export { TOKEN_KEY }
@@ -13,6 +13,12 @@ export const api = {
     client.post('/auth/login', { username, password }).then((r) => r.data),
   logout: (): Promise<{ ok: boolean }> => client.post('/auth/logout').then((r) => r.data),
   me: (): Promise<AuthUser> => client.get('/auth/me').then((r) => r.data),
+  setReportAuthor: (author: string): Promise<AuthUser> =>
+    client.put('/auth/report-author', { author }).then((r) => r.data),
+  listAuthors: (): Promise<{ authors: string[] }> =>
+    client.get('/auth/authors').then((r) => r.data),
+  setAuthors: (authors: string[]): Promise<{ authors: string[] }> =>
+    client.put('/auth/authors', { authors }).then((r) => r.data),
 
   // ---- users（管理员） ----
   listUsers: (): Promise<{ users: AuthUser[] }> => client.get('/users').then((r) => r.data),
@@ -61,8 +67,24 @@ export const api = {
   // ---- reports ----
   weekData: (start: string): Promise<WeekData> =>
     client.get('/reports/week-data', { params: { start } }).then((r) => r.data),
-  saveReport: (start: string, markdown: string): Promise<ReportRecord> =>
-    client.post('/reports/save', { start, markdown }).then((r) => r.data),
+  getPrompt: (params: { start: string; template?: string | null; author?: string }): Promise<{
+    saved: { system: string; user: string } | null
+    built: { system: string; user: string }
+  }> => client.get('/reports/prompt', { params }).then((r) => r.data),
+  savePrompt: (system: string, user: string): Promise<{ system: string; user: string }> =>
+    client.put('/reports/prompt', { system, user }).then((r) => r.data),
+  listTemplates: (): Promise<{ templates: TemplateItem[] }> =>
+    client.get('/report-templates').then((r) => r.data),
+  uploadTemplate: (name: string, content: string): Promise<TemplateItem> =>
+    client.post('/report-templates', { name, content }).then((r) => r.data),
+  getTemplate: (name: string): Promise<{ name: string; content: string }> =>
+    client.get(`/report-templates/${encodeURIComponent(name)}`).then((r) => r.data),
+  saveReport: (start: string, markdown: string, author = '', model?: string): Promise<ReportRecord> =>
+    client.post('/reports/save', { start, markdown, author, model }).then((r) => r.data),
+  updateReport: (id: string, markdown: string): Promise<ReportRecord> =>
+    client.put(`/reports/${id}`, { markdown }).then((r) => r.data),
+  deleteReport: (id: string): Promise<{ ok: boolean }> =>
+    client.delete(`/reports/${id}`).then((r) => r.data),
   listReports: (): Promise<{ reports: ReportRecord[] }> =>
     client.get('/reports').then((r) => r.data),
   getReport: (id: string): Promise<ReportRecord> =>
@@ -76,11 +98,18 @@ export interface StreamHandlers {
   onError?: (msg: string) => void
 }
 
+export interface StreamOptions {
+  model?: string
+  template?: string
+  author?: string
+  prompt?: { system: string; user: string } | null
+}
+
 /**
  * 调用 POST /api/reports/generate，读取 SSE 流。
  * 返回 abort() 用于中途取消。
  */
-export function streamReport(start: string, handlers: StreamHandlers): () => void {
+export function streamReport(start: string, handlers: StreamHandlers, opts: StreamOptions = {}): () => void {
   const ctrl = new AbortController()
   const run = async () => {
     try {
@@ -90,7 +119,10 @@ export function streamReport(start: string, handlers: StreamHandlers): () => voi
           'Content-Type': 'application/json',
           ...(localStorage.getItem(TOKEN_KEY) ? { Authorization: `Bearer ${localStorage.getItem(TOKEN_KEY)}` } : {})
         },
-        body: JSON.stringify({ start }),
+        body: JSON.stringify({
+          start, model: opts.model || null, template: opts.template || null, author: opts.author || '',
+          prompt: opts.prompt || null
+        }),
         signal: ctrl.signal
       })
       if (!resp.ok || !resp.body) {

@@ -56,16 +56,28 @@
               <span v-if="modelError" class="pa-muted"> {{ modelError }}</span>
             </div>
           </el-form-item>
+          <el-form-item label="AI可用列表">
+            <div class="enabled-box">
+              <el-select
+                v-model="ai.enabled_models"
+                multiple
+                filterable
+                clearable
+                placeholder="点击下拉选择要启用的模型"
+                popper-class="enabled-select-popper"
+                style="width: 100%"
+                @change="saveEnabledModels"
+              >
+                <el-option v-for="m in availableModels" :key="m" :label="m" :value="m" />
+              </el-select>
+              <div class="hint pa-muted">勾选的模型才会出现在其他界面（如周报）的模型选择列表中</div>
+            </div>
+          </el-form-item>
           <el-form-item label="温度">
             <el-slider v-model="ai.temperature" :min="0" :max="2" :step="0.1" show-input :show-input-controls="false" />
           </el-form-item>
           <el-form-item label="最大 tokens">
             <el-input-number v-model="ai.max_tokens" :min="256" :max="32768" :step="256" />
-          </el-form-item>
-          <el-form-item label="周报风格">
-            <el-select v-model="ai.report_style" filterable allow-create style="width: 100%">
-              <el-option v-for="s in stylePresets" :key="s" :label="s" :value="s" />
-            </el-select>
           </el-form-item>
           <el-form-item>
             <el-button :loading="testing" @click="testConn">
@@ -157,13 +169,13 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { reactive, ref, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import { api } from '@/api'
 import { useSettingsStore } from '@/stores/settings'
 import type { AiConfig, WeatherConfig, CityItem, ProviderPreset } from '@/types'
 
-const props = defineProps<{ modelValue: boolean }>()
+const props = defineProps<{ modelValue: boolean; focusTab?: string }>()
 const emit = defineEmits<{ (e: 'update:modelValue', v: boolean): void }>()
 
 const settings = useSettingsStore()
@@ -175,7 +187,6 @@ const weather = reactive<WeatherConfig>({ cities: [] } as WeatherConfig)
 const providers = ref<Record<string, ProviderPreset>>({
   dashscope: { base_url: 'https://dashscope.aliyuncs.com/compatible-mode/v1', label: '阿里云百炼 (Qwen)' }
 })
-const stylePresets = ['简洁要点式', '详细叙述式', '正式汇报式', '口语轻松式']
 
 const modelOptions = ref<string[]>([])
 const modelSource = ref('')
@@ -185,6 +196,14 @@ const testing = ref(false)
 const testResult = ref<{ ok: boolean; model?: string; error?: string } | null>(null)
 const saving = ref(false)
 
+// AI 可用列表 = 拉取到的账号模型 ∪ 已勾选 ∪ 当前默认模型
+const availableModels = computed(() => {
+  const set = new Set<string>(modelOptions.value)
+  ;(ai.enabled_models || []).forEach((m) => set.add(m))
+  if (ai.model) set.add(ai.model)
+  return [...set]
+})
+
 const cityKeyword = ref('')
 const cityResults = ref<CityItem[]>([])
 const searchingCity = ref(false)
@@ -192,6 +211,9 @@ const searchingCity = ref(false)
 async function onOpen() {
   await settings.load()
   Object.assign(ai, JSON.parse(JSON.stringify(settings.ai)), { api_key: '' })
+  if (!Array.isArray(ai.enabled_models)) ai.enabled_models = []
+  // 从其他界面跳转进来时定位到指定页签（如周报「模型管理」→ ai）
+  if (props.focusTab === 'ai' || props.focusTab === 'weather') tab.value = props.focusTab
   const w = JSON.parse(JSON.stringify(settings.weather))
   Object.assign(weather, w, { api_key: '', cities: w.cities || [] })
   modelOptions.value = []
@@ -231,6 +253,13 @@ async function loadModels(silent = false) {
   } finally {
     loadingModels.value = false
   }
+}
+
+// 勾选/取消模型后立即保存设置，周报等界面的模型列表随之即时更新
+async function saveEnabledModels() {
+  try {
+    await settings.save({ ai: { ...ai } })
+  } catch { /* interceptor 提示 */ }
 }
 
 async function testConn() {
@@ -309,4 +338,15 @@ async function saveAll() {
 .search-item:last-child { border-bottom: none; }
 .search-item:hover { background: var(--color-surface-hover); }
 .city-tags { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+/* AI 可用列表下拉框 */
+.enabled-box { width: 100%; }
+</style>
+
+<style>
+/* 下拉浮层挂载在 body，需全局样式：选中项黄色对号 */
+.enabled-select-popper .el-select-dropdown__item.is-selected {
+  color: #f5c518;
+  font-weight: 700;
+}
 </style>

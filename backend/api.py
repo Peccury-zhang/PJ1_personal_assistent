@@ -61,6 +61,29 @@ def me(user: dict = Depends(current_user)):
     return users._public(user)
 
 
+class AuthorBody(BaseModel):
+    author: str
+
+
+@router.put('/auth/report-author')
+def set_report_author(body: AuthorBody, user: dict = Depends(current_user)):
+    return users.set_report_author(user['id'], body.author)
+
+
+@router.get('/auth/authors')
+def list_authors(user: dict = Depends(current_user)):
+    return {'authors': users.list_authors(user['id'])}
+
+
+class AuthorsBody(BaseModel):
+    authors: list[str]
+
+
+@router.put('/auth/authors')
+def set_authors(body: AuthorsBody, user: dict = Depends(current_user)):
+    return {'authors': users.set_authors(user['id'], body.authors)}
+
+
 # ---------------------------------------------------------------- users（仅管理员）
 class UserCreateBody(BaseModel):
     username: str
@@ -114,7 +137,7 @@ class AiCfg(BaseModel):
     model: str = 'qwen3.8-flash'
     temperature: float = Field(default=0.7, ge=0, le=2)
     max_tokens: int = Field(default=4096, ge=1, le=32768)
-    report_style: str = '简洁要点式'
+    enabled_models: list[str] = []
 
 
 class CityItem(BaseModel):
@@ -234,20 +257,67 @@ def weather_cities(keyword: str = Query(...)):
 
 
 # ---------------------------------------------------------------- reports
+class TemplateName(BaseModel):
+    name: str
+
+
+@router.get('/report-templates')
+def list_templates(user: dict = Depends(current_user)):
+    return {'templates': store.list_templates()}
+
+
+class TemplateUploadBody(BaseModel):
+    name: str
+    content: str = ''
+
+
+@router.post('/report-templates')
+def upload_template(body: TemplateUploadBody, user: dict = Depends(current_user)):
+    return store.save_template(body.name, body.content)
+
+
+@router.get('/report-templates/{name}')
+def get_template(name: str, user: dict = Depends(current_user)):
+    return {'name': name, 'content': store.read_template(name)}
+
+
 @router.get('/reports/week-data')
 def week_data(start: str = Query(...), user: dict = Depends(current_user)):
     return report.build_week_data(user['id'], start)
 
 
+@router.get('/reports/prompt')
+def get_prompt(start: str = Query(...), template: str | None = None, author: str = '',
+               user: dict = Depends(current_user)):
+    """提示词弹窗：saved 为已保存草稿（无则 null），built 为按当前周/模板默认构建。"""
+    return {'saved': report.load_saved_prompt(),
+            'built': report.built_prompt(user['id'], start, template, author)}
+
+
+class PromptBody(BaseModel):
+    system: str
+    user: str
+
+
+@router.put('/reports/prompt')
+def put_prompt(body: PromptBody, user: dict = Depends(current_user)):
+    return report.save_prompt(body.system, body.user)
+
+
 class GenerateBody(BaseModel):
     start: str
+    model: str | None = None
+    template: str | None = None
+    author: str = ''
+    prompt: PromptBody | None = None  # 指定时直接按该 prompt 生成，跳过自动构建
 
 
 @router.post('/reports/generate')
 def generate(body: GenerateBody, user: dict = Depends(current_user)):
     def event_stream():
         try:
-            for token in report.generate_stream(user['id'], body.start):
+            for token in report.generate_stream(user['id'], body.start, body.model, body.template,
+                                                body.author, body.prompt.model_dump() if body.prompt else None):
                 yield f'data: {json.dumps({"delta": token}, ensure_ascii=False)}\n\n'
             yield f'data: {json.dumps({"done": True}, ensure_ascii=False)}\n\n'
         except Exception as e:
@@ -259,11 +329,33 @@ def generate(body: GenerateBody, user: dict = Depends(current_user)):
 class SaveReportBody(BaseModel):
     start: str
     markdown: str = Field(min_length=1)
+    author: str = ''
+    model: str | None = None
 
 
 @router.post('/reports/save')
 def save_report(body: SaveReportBody, user: dict = Depends(current_user)):
-    return report.save_report(user['id'], body.start, body.markdown)
+    # 同步持久化署名，下次默认使用
+    if body.author.strip():
+        try:
+            users.set_report_author(user['id'], body.author)
+        except Exception:
+            pass
+    return report.save_report(user['id'], body.start, body.markdown, body.author, body.model)
+
+
+class UpdateReportBody(BaseModel):
+    markdown: str = Field(min_length=1)
+
+
+@router.put('/reports/{record_id}')
+def update_report(record_id: str, body: UpdateReportBody, user: dict = Depends(current_user)):
+    return store.update_report_content(user['id'], record_id, body.markdown)
+
+
+@router.delete('/reports/{record_id}')
+def delete_report(record_id: str, user: dict = Depends(current_user)):
+    return store.delete_report_record(user['id'], record_id)
 
 
 @router.get('/reports')
