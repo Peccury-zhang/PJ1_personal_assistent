@@ -86,6 +86,7 @@ function onOpenSettings(tab?: string) {
 const baseNav = [
   { path: '/', label: '日历与任务', icon: 'Calendar', title: '日历与任务' },
   { path: '/report', label: 'AI 周报', icon: 'Document', title: 'AI 周报' },
+  { path: '/assistant', label: 'AI 助手', icon: 'ChatDotRound', title: 'AI 助手' },
   { path: '/weather', label: '天气', icon: 'Sunny', title: '天气' },
   { path: '/butler', label: '智能助手', icon: 'MagicStick', title: '智能助手' }
 ]

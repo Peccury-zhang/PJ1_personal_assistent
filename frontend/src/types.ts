@@ -209,3 +209,40 @@ export interface UserPayload {
   password?: string
   level?: UserLevel
 }
+
+// ---------------- AI 助手会话 ----------------
+// 消息内容为有序 blocks：文本 / 图片 / 搜索结果 交替，渲染时按序排版
+export interface SearchResult {
+  title: string
+  url: string
+  snippet: string
+  source: string
+}
+
+export interface ChatBlock {
+  type: 'text' | 'image' | 'search'
+  text?: string
+  data?: string // 图片 dataURL
+  name?: string
+  results?: SearchResult[] // type=search 时的联网搜索结果
+}
+
+export interface ChatMessage {
+  id: string
+  role: 'user' | 'assistant'
+  blocks: ChatBlock[]
+  created_at?: string
+  model?: string
+}
+
+export interface ChatSessionMeta {
+  id: string
+  title: string
+  created_at: string
+  updated_at: string
+  message_count: number
+}
+
+export interface ChatSession extends ChatSessionMeta {
+  messages: ChatMessage[]
+}

@@ -12,7 +12,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from . import store, users
-from .services import ai, report, weather
+from .services import ai, chat, report, weather
 
 router = APIRouter(prefix='/api')
 
@@ -243,6 +243,56 @@ def get_diary(date: str, user: dict = Depends(current_user)):
 @router.put('/diary/{date}')
 def put_diary(date: str, body: DiaryBody, user: dict = Depends(current_user)):
     return store.save_diary(user['id'], date, body.entries)
+
+
+# ---------------------------------------------------------------- chat（AI 助手）
+class ChatImageBody(BaseModel):
+    data: str = Field(description='图片 dataURL')
+    name: str = ''
+
+
+class ChatSendBody(BaseModel):
+    session_id: str | None = None
+    text: str = ''
+    images: list[ChatImageBody] = []
+    model: str | None = None
+    web_search: bool = False
+
+
+@router.get('/chat/sessions')
+def chat_sessions(user: dict = Depends(current_user)):
+    return chat.list_sessions(user['id'])
+
+
+@router.get('/chat/sessions/{sid}')
+def chat_session(sid: str, user: dict = Depends(current_user)):
+    return chat.load_session(user['id'], sid)
+
+
+@router.delete('/chat/sessions/{sid}')
+def chat_delete(sid: str, user: dict = Depends(current_user)):
+    return chat.delete_session(user['id'], sid)
+
+
+@router.post('/chat/send')
+def chat_send(body: ChatSendBody, user: dict = Depends(current_user)):
+    sid, token_iter, search = chat.start_reply(user['id'], body.session_id, body.text,
+                                               [i.model_dump() for i in body.images], body.model,
+                                               body.web_search)
+
+    def event_stream():
+        yield f'data: {json.dumps({"session": sid}, ensure_ascii=False)}\n\n'
+        if search['results'] or search['error']:
+            yield f'data: {json.dumps({"search": search}, ensure_ascii=False)}\n\n'
+        try:
+            for token in token_iter:
+                yield f'data: {json.dumps({"delta": token}, ensure_ascii=False)}\n\n'
+            yield f'data: {json.dumps({"done": True}, ensure_ascii=False)}\n\n'
+        except Exception as e:
+            yield f'data: {json.dumps({"error": str(e)}, ensure_ascii=False)}\n\n'
+
+    return StreamingResponse(event_stream(), media_type='text/event-stream',
+                             headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'})
 
 
 # ---------------------------------------------------------------- weather

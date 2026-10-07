@@ -2,7 +2,8 @@ import client, { TOKEN_KEY } from './client'
 import type {
   ServerSettings, SettingsPatch, Task, DayData, RangeResult,
   WeatherData, CityItem, WeekData, ReportRecord, ModelListResult, ProviderPreset,
-  AuthUser, LoginResult, UserPayload, DiaryEntry, DiaryData, DiaryRangeResult, TemplateItem
+  AuthUser, LoginResult, UserPayload, DiaryEntry, DiaryData, DiaryRangeResult, TemplateItem,
+  ChatSessionMeta, ChatSession, SearchResult
 } from '@/types'
 
 export { TOKEN_KEY }
@@ -88,7 +89,15 @@ export const api = {
   listReports: (): Promise<{ reports: ReportRecord[] }> =>
     client.get('/reports').then((r) => r.data),
   getReport: (id: string): Promise<ReportRecord> =>
-    client.get(`/reports/${id}`).then((r) => r.data)
+    client.get(`/reports/${id}`).then((r) => r.data),
+
+  // ---- chat（AI 助手） ----
+  listChatSessions: (): Promise<{ sessions: ChatSessionMeta[] }> =>
+    client.get('/chat/sessions').then((r) => r.data),
+  getChatSession: (id: string): Promise<ChatSession> =>
+    client.get(`/chat/sessions/${id}`).then((r) => r.data),
+  deleteChatSession: (id: string): Promise<{ ok: boolean }> =>
+    client.delete(`/chat/sessions/${id}`).then((r) => r.data)
 }
 
 // ------------------------------------------------------------------ SSE 流式生成
@@ -162,6 +171,85 @@ export function streamReport(start: string, handlers: StreamHandlers, opts: Stre
     } catch (e: any) {
       if (e?.name === 'AbortError') return
       handlers.onError?.(e?.message || '生成失败')
+    }
+  }
+  run()
+  return () => ctrl.abort()
+}
+
+// ------------------------------------------------------------------ SSE 流式对话（AI 助手）
+export interface ChatStreamHandlers {
+  onSession?: (id: string) => void
+  onSearch?: (s: { results: SearchResult[]; error: string }) => void
+  onDelta: (text: string) => void
+  onDone?: () => void
+  onError?: (msg: string) => void
+}
+
+export interface ChatSendPayload {
+  session_id?: string | null
+  text: string
+  images?: { data: string; name: string }[]
+  model?: string | null
+  web_search?: boolean
+}
+
+/**
+ * 调用 POST /api/chat/send，读取 SSE 流。
+ * 首个事件回传 session id（新建会话时前端据此绑定后续消息）。
+ * 返回 abort() 用于中途取消。
+ */
+export function streamChat(payload: ChatSendPayload, handlers: ChatStreamHandlers): () => void {
+  const ctrl = new AbortController()
+  const run = async () => {
+    try {
+      const resp = await fetch('/api/chat/send', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(localStorage.getItem(TOKEN_KEY) ? { Authorization: `Bearer ${localStorage.getItem(TOKEN_KEY)}` } : {})
+        },
+        body: JSON.stringify(payload),
+        signal: ctrl.signal
+      })
+      if (!resp.ok || !resp.body) {
+        let msg = `HTTP ${resp.status}`
+        try {
+          const j = await resp.json()
+          if (j?.detail) msg = typeof j.detail === 'string' ? j.detail : JSON.stringify(j.detail)
+        } catch { /* ignore */ }
+        handlers.onError?.(msg)
+        return
+      }
+      const reader = resp.body.getReader()
+      const decoder = new TextDecoder('utf-8')
+      let buffer = ''
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        let idx: number
+        while ((idx = buffer.indexOf('\n\n')) >= 0) {
+          const rawEvent = buffer.slice(0, idx)
+          buffer = buffer.slice(idx + 2)
+          const line = rawEvent.split('\n').find((l) => l.startsWith('data:'))
+          if (!line) continue
+          const data = line.slice(5).trim()
+          if (!data) continue
+          try {
+            const obj = JSON.parse(data)
+            if (obj.session) handlers.onSession?.(obj.session)
+            else if (obj.search) handlers.onSearch?.(obj.search)
+            else if (obj.delta) handlers.onDelta(obj.delta)
+            else if (obj.done) handlers.onDone?.()
+            else if (obj.error) handlers.onError?.(obj.error)
+          } catch { /* 忽略半包 */ }
+        }
+      }
+      handlers.onDone?.()
+    } catch (e: any) {
+      if (e?.name === 'AbortError') return
+      handlers.onError?.(e?.message || '对话失败')
     }
   }
   run()
